@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hapninapp Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .auth-container, .profile-container { padding: 20px; border: 1px solid #ddd; margin-top: 20px; }
+        .profile-container { display: none; }
+        button { padding: 8px 16px; margin-top: 10px; }
+        input { padding: 8px; margin: 5px 0; width: 100%; }
+    </style>
+</head>
+<body>
+    <h1>Hapninapp Test Site</h1>
+    
+    <div class="auth-container" id="auth">
+        <h2>Login or Sign Up</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <input type="text" id="name" placeholder="Your Name (for signup)">
+        <button onclick="signUp()">Sign Up</button>
+        <button onclick="signIn()">Sign In</button>
+    </div>
+    
+    <div class="profile-container" id="profile">
+        <h2>Welcome <span id="user-name"></span></h2>
+        <p>Your account is connected to Intercom.</p>
+        <button onclick="signOut()">Sign Out</button>
+    </div>
+
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://ojqygoquwruijbokkdkc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qcXlnb3F1d3J1aWpib2trZGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzODU3ODIsImV4cCI6MjA1Njk2MTc4Mn0.oyi354dHYqbr5SuS1P8F377y9Bg6ZvATmVFu58Adlyc';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        
+        // Check if user is already logged in
+        async function checkUser() {
+            const { data, error } = await supabase.auth.getSession();
+            if (data.session) {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', data.session.user.id)
+                    .single();
+                
+                currentUser = {
+                    id: data.session.user.id,
+                    email: data.session.user.email,
+                    name: userData?.name || 'User',
+                    createdAt: userData?.created_at || Math.floor(Date.now() / 1000)
+                };
+                
+                document.getElementById('auth').style.display = 'none';
+                document.getElementById('profile').style.display = 'block';
+                document.getElementById('user-name').textContent = currentUser.name;
+                
+                // Set up Intercom with user data
+                window.intercomSettings = {
+                    api_base: "https://api-iam.intercom.io",
+                    app_id: "fa4vc9nm",
+                    user_id: currentUser.id,
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    created_at: currentUser.createdAt
+                };
+                
+                // Load Intercom
+                (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',w.intercomSettings);}else{var d=document;var i=function(){i.c(arguments);};i.q=[];i.c=function(args){i.q.push(args);};w.Intercom=i;var l=function(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://widget.intercom.io/widget/fa4vc9nm';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);};if(document.readyState==='complete'){l();}else if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+            }
+        }
+        
+        async function signUp() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            
+            if (!email || !password || !name) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+            
+            if (error) {
+                alert('Error signing up: ' + error.message);
+                return;
+            }
+            
+            // Add user to users table
+            const timestamp = Math.floor(Date.now() / 1000);
+            await supabase.from('users').insert([
+                { id: data.user.id, email, name, created_at: timestamp }
+            ]);
+            
+            alert('Signed up successfully! Please check your email for verification.');
+            checkUser();
+        }
+        
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+            
+            if (error) {
+                alert('Error signing in: ' + error.message);
+                return;
+            }
+            
+            checkUser();
+        }
+        
+        async function signOut() {
+            await supabase.auth.signOut();
+            document.getElementById('auth').style.display = 'block';
+            document.getElementById('profile').style.display = 'none';
+            window.Intercom('shutdown');
+        }
+        
+        // Check user on page load
+        checkUser();
+    </script>
+</body>
+</html>
