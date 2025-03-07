@@ -6,11 +6,29 @@
     <title>Hapninapp Test</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .auth-container, .profile-container { padding: 20px; border: 1px solid #ddd; margin-top: 20px; }
-        .profile-container { display: none; }
-        button { padding: 8px 16px; margin-top: 10px; }
-        input { padding: 8px; margin: 5px 0; width: 100%; }
+        body { 
+            font-family: Arial; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .auth-container, .profile-container { 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            margin-top: 20px; 
+        }
+        .profile-container { 
+            display: none; 
+        }
+        button { 
+            padding: 8px 16px; 
+            margin-top: 10px; 
+        }
+        input { 
+            padding: 8px; 
+            margin: 5px 0; 
+            width: 100%; 
+        }
     </style>
 </head>
 <body>
@@ -71,7 +89,39 @@
                 };
                 
                 // Load Intercom
-                (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',w.intercomSettings);}else{var d=document;var i=function(){i.c(arguments);};i.q=[];i.c=function(args){i.q.push(args);};w.Intercom=i;var l=function(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://widget.intercom.io/widget/fa4vc9nm';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);};if(document.readyState==='complete'){l();}else if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+                (function(){
+                    var w=window;
+                    var ic=w.Intercom;
+                    if(typeof ic==="function"){
+                        ic('reattach_activator');
+                        ic('update',w.intercomSettings);
+                    } else {
+                        var d=document;
+                        var i=function(){
+                            i.c(arguments);
+                        };
+                        i.q=[];
+                        i.c=function(args){
+                            i.q.push(args);
+                        };
+                        w.Intercom=i;
+                        var l=function(){
+                            var s=d.createElement('script');
+                            s.type='text/javascript';
+                            s.async=true;
+                            s.src='https://widget.intercom.io/widget/fa4vc9nm';
+                            var x=d.getElementsByTagName('script')[0];
+                            x.parentNode.insertBefore(s,x);
+                        };
+                        if(document.readyState==='complete'){
+                            l();
+                        } else if(w.attachEvent){
+                            w.attachEvent('onload',l);
+                        } else {
+                            w.addEventListener('load',l,false);
+                        }
+                    }
+                })();
             }
         }
         
@@ -85,24 +135,46 @@
                 return;
             }
             
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-            });
-            
-            if (error) {
-                alert('Error signing up: ' + error.message);
-                return;
+            try {
+                // Sign up the user
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                });
+                
+                if (error) {
+                    console.error('Auth error:', error);
+                    alert('Error signing up: ' + error.message);
+                    return;
+                }
+                
+                console.log('User signed up:', data.user);
+                
+                // Add user to users table
+                const timestamp = Math.floor(Date.now() / 1000);
+                const { error: insertError } = await supabase
+                    .from('users')
+                    .insert([
+                        { 
+                            id: data.user.id, 
+                            email: email, 
+                            name: name, 
+                            created_at: timestamp 
+                        }
+                    ]);
+                
+                if (insertError) {
+                    console.error('Insert error:', insertError);
+                    alert('Account created but profile data could not be saved: ' + insertError.message);
+                } else {
+                    alert('Signed up successfully! Please check your email for verification.');
+                }
+                
+                checkUser();
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                alert('An unexpected error occurred: ' + err.message);
             }
-            
-            // Add user to users table
-            const timestamp = Math.floor(Date.now() / 1000);
-            await supabase.from('users').insert([
-                { id: data.user.id, email, name, created_at: timestamp }
-            ]);
-            
-            alert('Signed up successfully! Please check your email for verification.');
-            checkUser();
         }
         
         async function signIn() {
