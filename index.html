@@ -150,8 +150,9 @@
                 
                 console.log('User signed up:', data.user);
                 
-                // Add user to users table
-                const timestamp = Math.floor(Date.now() / 1000);
+                // Add user to users table with proper timestamp format
+                // Use ISO string format for PostgreSQL timestamp
+                const timestamp = new Date().toISOString();
                 const { error: insertError } = await supabase
                     .from('users')
                     .insert([
