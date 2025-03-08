@@ -61,17 +61,25 @@
         async function checkUser() {
             const { data, error } = await supabase.auth.getSession();
             if (data.session) {
-                const { data: userData } = await supabase
+                // Get user data from the users table
+                const { data: userData, error: userError } = await supabase
                     .from('users')
                     .select('*')
                     .eq('id', data.session.user.id)
                     .single();
                 
+                if (userError) {
+                    console.error('Error fetching user data:', userError);
+                    return;
+                }
+                
+                console.log('User data retrieved:', userData); // Add this for debugging
+                
                 currentUser = {
                     id: data.session.user.id,
                     email: data.session.user.email,
                     name: userData?.name || 'User',
-                    createdAt: userData?.created_at || Math.floor(Date.now() / 1000)
+                    createdAt: userData?.created_at || new Date().toISOString()
                 };
                 
                 document.getElementById('auth').style.display = 'none';
@@ -85,8 +93,12 @@
                     user_id: currentUser.id,
                     name: currentUser.name,
                     email: currentUser.email,
-                    created_at: currentUser.createdAt
+                    created_at: typeof currentUser.createdAt === 'string' 
+                        ? Math.floor(new Date(currentUser.createdAt).getTime() / 1000) 
+                        : currentUser.createdAt
                 };
+                
+                console.log('Intercom settings:', window.intercomSettings); // Add this for debugging
                 
                 // Load Intercom
                 (function(){
