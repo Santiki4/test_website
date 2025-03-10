@@ -57,6 +57,50 @@
         
         let currentUser = null;
         
+        // Initialize Intercom for non-logged-in users
+        function initIntercomForGuests() {
+            window.intercomSettings = {
+                api_base: "https://api-iam.intercom.io",
+                app_id: "fa4vc9nm"
+                // No user-specific data for guests
+            };
+            
+            // Load Intercom
+            (function(){
+                var w=window;
+                var ic=w.Intercom;
+                if(typeof ic==="function"){
+                    ic('reattach_activator');
+                    ic('update',w.intercomSettings);
+                } else {
+                    var d=document;
+                    var i=function(){
+                        i.c(arguments);
+                    };
+                    i.q=[];
+                    i.c=function(args){
+                        i.q.push(args);
+                    };
+                    w.Intercom=i;
+                    var l=function(){
+                        var s=d.createElement('script');
+                        s.type='text/javascript';
+                        s.async=true;
+                        s.src='https://widget.intercom.io/widget/fa4vc9nm';
+                        var x=d.getElementsByTagName('script')[0];
+                        x.parentNode.insertBefore(s,x);
+                    };
+                    if(document.readyState==='complete'){
+                        l();
+                    } else if(w.attachEvent){
+                        w.attachEvent('onload',l);
+                    } else {
+                        w.addEventListener('load',l,false);
+                    }
+                }
+            })();
+        }
+        
         // Check if user is already logged in
         async function checkUser() {
             const { data, error } = await supabase.auth.getSession();
@@ -70,10 +114,12 @@
                 
                 if (userError) {
                     console.error('Error fetching user data:', userError);
+                    // If we can't get user data, still show Intercom for guests
+                    initIntercomForGuests();
                     return;
                 }
                 
-                console.log('User data retrieved:', userData); // Add this for debugging
+                console.log('User data retrieved:', userData);
                 
                 currentUser = {
                     id: data.session.user.id,
@@ -86,7 +132,11 @@
                 document.getElementById('profile').style.display = 'block';
                 document.getElementById('user-name').textContent = currentUser.name;
                 
-                // Set up Intercom with user data
+                // Update Intercom with user data
+                if (window.Intercom) {
+                    window.Intercom('shutdown'); // Shut down the guest session
+                }
+                
                 window.intercomSettings = {
                     api_base: "https://api-iam.intercom.io",
                     app_id: "fa4vc9nm",
@@ -98,9 +148,9 @@
                         : currentUser.createdAt
                 };
                 
-                console.log('Intercom settings:', window.intercomSettings); // Add this for debugging
+                console.log('Intercom settings for logged-in user:', window.intercomSettings);
                 
-                // Load Intercom
+                // Reload Intercom with user data
                 (function(){
                     var w=window;
                     var ic=w.Intercom;
@@ -134,6 +184,9 @@
                         }
                     }
                 })();
+            } else {
+                // No logged-in user, initialize Intercom for guests
+                initIntercomForGuests();
             }
         }
         
@@ -163,7 +216,6 @@
                 console.log('User signed up:', data.user);
                 
                 // Add user to users table with proper timestamp format
-                // Use ISO string format for PostgreSQL timestamp
                 const timestamp = new Date().toISOString();
                 const { error: insertError } = await supabase
                     .from('users')
@@ -211,7 +263,12 @@
             await supabase.auth.signOut();
             document.getElementById('auth').style.display = 'block';
             document.getElementById('profile').style.display = 'none';
-            window.Intercom('shutdown');
+            
+            // Reset Intercom to guest mode
+            if (window.Intercom) {
+                window.Intercom('shutdown');
+            }
+            initIntercomForGuests();
         }
         
         // Check user on page load
