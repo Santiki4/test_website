@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hapninapp Test</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Add CryptoJS for HMAC generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         body { 
             font-family: Arial; 
@@ -55,7 +57,17 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qcXlnb3F1d3J1aWpib2trZGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEzODU3ODIsImV4cCI6MjA1Njk2MTc4Mn0.oyi354dHYqbr5SuS1P8F377y9Bg6ZvATmVFu58Adlyc';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
         
+        // IMPORTANT: Your Intercom Identity Verification secret key
+        // In a production environment, this should be kept secure on your server
+        // For this demo, we're including it in the client, but this is NOT recommended for production
+        const intercomSecretKey = 'xlNImrhd6Bvz5gvAtRAAZsRlr9jRvf03Mh3aTonmHvE';
+        
         let currentUser = null;
+        
+        // Generate HMAC for user verification
+        function generateHMAC(userId) {
+            return CryptoJS.HmacSHA256(userId.toString(), intercomSecretKey).toString(CryptoJS.enc.Hex);
+        }
         
         // Initialize Intercom for non-logged-in users
         function initIntercomForGuests() {
@@ -132,7 +144,11 @@
                 document.getElementById('profile').style.display = 'block';
                 document.getElementById('user-name').textContent = currentUser.name;
                 
-                // Update Intercom with user data
+                // Generate HMAC for user verification
+                const userHash = generateHMAC(currentUser.id);
+                console.log('Generated user_hash:', userHash);
+                
+                // Update Intercom with user data and verification hash
                 if (window.Intercom) {
                     window.Intercom('shutdown'); // Shut down the guest session
                 }
@@ -145,7 +161,8 @@
                     email: currentUser.email,
                     created_at: typeof currentUser.createdAt === 'string' 
                         ? Math.floor(new Date(currentUser.createdAt).getTime() / 1000) 
-                        : currentUser.createdAt
+                        : currentUser.createdAt,
+                    user_hash: userHash // Add the HMAC for identity verification
                 };
                 
                 console.log('Intercom settings for logged-in user:', window.intercomSettings);
