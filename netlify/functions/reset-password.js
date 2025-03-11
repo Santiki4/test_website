@@ -17,8 +17,7 @@ exports.handler = async function(event, context) {
     };
   }
   
-  // Log the beginning of the function execution
-  console.log('Function started');
+  console.log('Password reset function started');
   
   try {
     // Check if environment variables are set
@@ -53,7 +52,7 @@ exports.handler = async function(event, context) {
       };
     }
     
-    const { email, intercom_user_id } = data;
+    const { email } = data;
     
     if (!email) {
       console.error('Missing email in request');
@@ -77,22 +76,10 @@ exports.handler = async function(event, context) {
     
     console.log('Supabase client initialized');
     
-    // Set a timeout for the Supabase request
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Supabase request timed out')), 8000);
-    });
-    
-    // Send password reset email with timeout
-    const resetPromise = supabase.auth.resetPasswordForEmail(email, {
+    // Send password reset email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.SITE_URL || 'https://hapnin.netlify.app'}/reset-password-confirmation`
     });
-    
-    // Race the reset promise against the timeout
-    const { error } = await Promise.race([resetPromise, timeoutPromise])
-      .catch(err => {
-        console.error('Password reset error:', err);
-        return { error: err };
-      });
     
     if (error) {
       console.error('Password reset failed:', error);
