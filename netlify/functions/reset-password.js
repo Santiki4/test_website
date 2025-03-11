@@ -20,34 +20,18 @@ exports.handler = async function(event, context) {
   console.log('Password reset function started');
   
   try {
-    // Check if environment variables are set
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-      console.error('Missing environment variables');
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ 
-          success: false, 
-          message: 'Server configuration error: Missing environment variables' 
-        })
-      };
-    }
-    
-    // Parse request body with error handling
+    // Parse request body
     let data;
     try {
-      console.log('Raw request body:', event.body);
       data = JSON.parse(event.body || '{}');
-      console.log('Parsed data:', data);
+      console.log('Request data:', data);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError);
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ 
           success: false, 
-          message: 'Invalid JSON in request body',
-          error: parseError.message
+          message: 'Invalid JSON in request body' 
         })
       };
     }
@@ -55,7 +39,6 @@ exports.handler = async function(event, context) {
     const { email } = data;
     
     if (!email) {
-      console.error('Missing email in request');
       return {
         statusCode: 400,
         headers,
@@ -66,7 +49,7 @@ exports.handler = async function(event, context) {
       };
     }
     
-    console.log(`Processing password reset for email: ${email}`);
+    console.log(`Processing reset for: ${email}`);
     
     // Initialize Supabase client
     const supabase = createClient(
@@ -74,45 +57,37 @@ exports.handler = async function(event, context) {
       process.env.SUPABASE_SERVICE_KEY
     );
     
-    console.log('Supabase client initialized');
-    
-    // Send password reset email
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    // Instead of waiting for the reset email to be sent,
+    // we'll just queue it up and return success immediately
+    supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.SITE_URL || 'https://hapnin.netlify.app'}/reset-password-confirmation`
+    }).then(result => {
+      if (result.error) {
+        console.error('Reset error (async):', result.error);
+      } else {
+        console.log('Reset email sent successfully (async)');
+      }
+    }).catch(err => {
+      console.error('Reset exception (async):', err);
     });
     
-    if (error) {
-      console.error('Password reset failed:', error);
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ 
-          success: false, 
-          message: 'Failed to send password reset email',
-          error: error.message
-        })
-      };
-    }
-    
-    console.log(`Password reset email sent to ${email}`);
-    
+    // Return success immediately without waiting
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         success: true, 
-        message: 'Password reset email sent successfully' 
+        message: 'Password reset request received and is being processed' 
       })
     };
   } catch (error) {
-    console.error('Unexpected function error:', error);
+    console.error('Function error:', error);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
         success: false, 
-        message: 'Internal server error',
-        error: error.message
+        message: 'Internal server error' 
       })
     };
   }
