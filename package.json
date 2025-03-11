@@ -1,0 +1,8 @@
+{
+  "name": "hapninapp-intercom-test",
+  "version": "1.0.0",
+  "description": "Test site for Intercom integration",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}
